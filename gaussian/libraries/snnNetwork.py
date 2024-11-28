@@ -88,6 +88,47 @@ class NetLIF(nn.Module):
 
         return torch.stack(spk2_rec, dim=0), torch.stack(mem2_rec, dim=0)
     
+# Define Network
+class NetLIFTime(nn.Module):
+    def __init__(self, num_inputs, num_hidden, num_outputs, batch_size, num_steps):
+        super(NetLIFTime, self).__init__()
+
+        # Initialization parameters
+        self.num_inputs = num_inputs
+        self.num_hidden = num_hidden
+        self.num_outputs = num_outputs
+        self.batch_size = batch_size
+        self.num_steps = num_steps
+
+        # Initialize layers
+        self.fc1 = nn.Linear(num_inputs, num_hidden)
+        self.lif1 = LeakySurrogate()
+        self.fc2 = nn.Linear(num_hidden, num_outputs)
+        self.lif2 = LeakySurrogate()
+
+    def forward(self, x):
+
+        # Initialize hidden states at t=0
+        mem1 = torch.zeros(self.batch_size, self.num_hidden)
+        mem2 = torch.zeros(self.batch_size, self.num_outputs)
+
+        # Record the final layer
+        x_rec = []
+        spk2_rec = []
+        mem1_rec = []
+        mem2_rec = []
+        for input_step in x:
+            cur1 = self.fc1(input_step)
+            spk1, mem1 = self.lif1(cur1, mem1)
+            cur2 = self.fc2(spk1)
+            spk2, mem2 = self.lif2(cur2, mem2)
+            spk2_rec.append(spk2)
+            x_rec.append(torch.Tensor(x))
+            mem1_rec.append(mem1)
+            mem2_rec.append(mem2)
+
+        return torch.stack(spk2_rec, dim=0), torch.stack(mem2_rec, dim=0)
+    
 class NetIzhiExtraLayer(nn.Module):
     def __init__(self, num_inputs, num_hidden, num_outputs, batch_size, num_steps):
         super(NetIzhiExtraLayer, self).__init__()
